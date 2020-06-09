@@ -11,70 +11,72 @@ Create a file with user details locally at /tmp/users/user-details.csv
 
 Edit the kube-apiserver static pod configured by kubeadm to pass in the user details. The file is located at /etc/kubernetes/manifests/kube-apiserver.yaml
 
-1.	apiVersion: v1
-2.	kind: Pod
-3.	metadata:
-4.	  name: kube-apiserver
-5.	  namespace: kube-system
-6.	spec:
-7.	  containers:
-8.	  - command:
-9.	    - kube-apiserver
-10.	      <content-hidden>
-11.	    image: k8s.gcr.io/kube-apiserver-amd64:v1.11.3
-12.	    name: kube-apiserver
-13.	    volumeMounts:
-14.	    - mountPath: /tmp/users
-15.	      name: usr-details
-16.	      readOnly: true
-17.	  volumes:
-18.	  - hostPath:
-19.	      path: /tmp/users
-20.	      type: DirectoryOrCreate
-21.	    name: usr-details
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kube-apiserver
+      namespace: kube-system
+    spec:
+      containers:
+      - command:
+        - kube-apiserver
+          <content-hidden>
+        image: k8s.gcr.io/kube-apiserver-amd64:v1.11.3
+        name: kube-apiserver
+        volumeMounts:
+        - mountPath: /tmp/users
+          name: usr-details
+          readOnly: true
+      volumes:
+      - hostPath:
+          path: /tmp/users
+          type: DirectoryOrCreate
+        name: usr-details
 
 Modify the kube-apiserver startup options to include the basic-auth file
 
-1.	apiVersion: v1
-2.	kind: Pod
-3.	metadata:
-4.	  creationTimestamp: null
-5.	  name: kube-apiserver
-6.	  namespace: kube-system
-7.	spec:
-8.	  containers:
-9.	  - command:
-10.	    - kube-apiserver
-11.	    - --authorization-mode=Node,RBAC
-12.	      <content-hidden>
-13.	    - --basic-auth-file=/tmp/users/user-details.csv
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      creationTimestamp: null
+      name: kube-apiserver
+      namespace: kube-system
+    spec:
+      containers:
+      - command:
+        - kube-apiserver
+        - --authorization-mode=Node,RBAC
+          <content-hidden>
+        - --basic-auth-file=/tmp/users/user-details.csv
 Create the necessary roles and role bindings for these users:
 
-1.	---
-2.	kind: Role
-3.	apiVersion: rbac.authorization.k8s.io/v1
-4.	metadata:
-5.	  namespace: default
-6.	  name: pod-reader
-7.	rules:
-8.	- apiGroups: [""] # "" indicates the core API group
-9.	  resources: ["pods"]
-10.	  verbs: ["get", "watch", "list"]
-11.	 
-12.	---
-13.	# This role binding allows "jane" to read pods in the "default" namespace.
-14.	kind: RoleBinding
-15.	apiVersion: rbac.authorization.k8s.io/v1
-16.	metadata:
-17.	  name: read-pods
-18.	  namespace: default
-19.	subjects:
-20.	- kind: User
-21.	  name: user1 # Name is case sensitive
-22.	  apiGroup: rbac.authorization.k8s.io
-23.	roleRef:
-24.	  kind: Role #this must be Role or ClusterRole
-25.	  name: pod-reader # this must match the name of the Role or ClusterRole you wish to bind to
-26.	  apiGroup: rbac.authorization.k8s.io
+    ---
+    kind: Role
+    apiVersion: rbac.authorization.k8s.io/v1
+    metadata:
+      namespace: default
+      name: pod-reader
+    rules:
+    - apiGroups: [""] # "" indicates the core API group
+      resources: ["pods"]
+      verbs: ["get", "watch", "list"]
+     
+    ---
+    # This role binding allows "jane" to read pods in the "default" namespace.
+    kind: RoleBinding
+    apiVersion: rbac.authorization.k8s.io/v1
+    metadata:
+      name: read-pods
+      namespace: default
+    subjects:
+    - kind: User
+      name: user1 # Name is case sensitive
+      apiGroup: rbac.authorization.k8s.io
+    roleRef:
+      kind: Role #this must be Role or ClusterRole
+      name: pod-reader # this must match the name of the Role or ClusterRole you wish to bind to
+      apiGroup: rbac.authorization.k8s.io
+      
+      
 Once created, you may authenticate into the kube-api server using the users credentials
 curl -v -k https://localhost:6443/api/v1/pods -u "user1:password123" 
